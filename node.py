@@ -1,3 +1,4 @@
+import logging
 from typing import Set
 from enum import Enum
 
@@ -18,6 +19,15 @@ class Node:
 
     def __init__(self, record: str, title: str,
                  node_type: NodeType = NodeType.REFERENCE):
+        self.logger = logging.getLogger(__name__)
+
+        if not isinstance(record, str):
+            self.logger.error("Attempted to create node with record %s", record)
+            raise TypeError(f"Record must be a string, not {type(record)}")
+        if not isinstance(title, str):
+            self.logger.error("Attempted to create node with title %s", title)
+            raise TypeError(f"Title must be a string, not {type(title)}")
+
         self.record = record
         self.title = title
         self.parents: Set[Node] = set()
@@ -59,4 +69,6 @@ class Node:
         Returns:
             None
         """
+        if not isinstance(parent_node.record, str):
+            print(parent_node)
         self.parents.add(parent_node)

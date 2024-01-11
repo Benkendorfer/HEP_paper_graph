@@ -84,6 +84,7 @@ class APIRequestManager:
         while not self.can_make_request():
             sleep_time = self.time_window - (time.time() - self.queue[0])
             if sleep_time > 0:
+                self.logger.info("Waiting %f seconds until a request can be made", sleep_time)
                 time.sleep(sleep_time + 0.05)
 
     def make_api_request(self, url: str):
@@ -102,7 +103,15 @@ class APIRequestManager:
 
         request_time = time.time()
         self.enqueue(request_time)
-        response = requests.get(url, timeout=5)
+
+        try:
+            response = requests.get(url, timeout=5)
+        except requests.exceptions.Timeout:
+            self.logger.warning("API request to %s timed out", url)
+            return None
+        except requests.exceptions.ConnectionError:
+            self.logger.warning("API request to %s failed due to a connection error", url)
+            return None
 
         self.logger.info("API request to %s successful", url)
         self.logger.info("%i requests have been made in the last %i seconds",

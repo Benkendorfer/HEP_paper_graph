@@ -1,6 +1,7 @@
 # Local
 data.json
 graph.dot
+.vscode
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

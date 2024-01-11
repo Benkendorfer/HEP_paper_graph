@@ -1,4 +1,9 @@
 from typing import Set
+from enum import Enum
+
+class NodeType(Enum):
+    REFERENCE = 0
+    SEED = 1
 
 class Node:
     """
@@ -8,12 +13,15 @@ class Node:
         record (str): The record of the node.
         title (str): The title of the node.
         parents (set): Set of parent nodes.
+        node_type (NodeType): The type of the node.
     """
 
-    def __init__(self, record: str, title: str):
+    def __init__(self, record: str, title: str,
+                 node_type: NodeType = NodeType.REFERENCE):
         self.record = record
         self.title = title
         self.parents: Set[Node] = set()
+        self.node_type = node_type
 
     def __str__(self):
         return f"Record: {self.record}\nTitle: {self.title}"

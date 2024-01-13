@@ -103,13 +103,13 @@ class APIRequestManager:
         """
         # read from the cache if we can
         if cache:
-            self.logger.info("Checking cache for %s", url)
+            self.logger.debug("Checking cache for %s", url)
             try:
                 with open(f"cache/{url.replace('/', '_')}.json", "r", encoding='utf-8') as f:
-                    self.logger.info("Reading from cache")
+                    self.logger.debug("Reading from cache")
                     return json.load(f)
             except FileNotFoundError:
-                self.logger.info("Cache miss")
+                self.logger.debug("Cache miss")
 
         if not self.can_make_request():
             self.wait_until_request_possible()

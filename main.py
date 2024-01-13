@@ -242,7 +242,9 @@ def find_inter_node_citations(
 
         # We only record citations to nodes that are
         # in the original list
-        cited_nodes = get_inspire_nodes_from_url(citing_node.record, api_manager, record_filter=record_filter)
+        cited_nodes = get_inspire_nodes_from_url(
+            citing_node.record, api_manager, record_filter=record_filter
+        )
 
         for cited_node in cited_nodes:
             add_inter_node_citation(nodes, citing_node, cited_node)
@@ -253,12 +255,14 @@ def find_inter_node_citations(
 API_MANAGER = APIRequestManager()
 
 SEEDS = [#"1900929", "1815227",
-         "2037744", "2077575"
+         "2037744", "2077575", "2732688"
          ]
 
 ALL_NODES = get_nodes_from_seeds(SEEDS, API_MANAGER)
 
 find_inter_node_citations(ALL_NODES, API_MANAGER)
+
+logging.info('Generating graph...')
 
 # create adjacency matrix
 adjacency_matrix = {}
@@ -281,18 +285,17 @@ gt.graph_draw(g, pos=pos, vertex_fill_color=gt.prop_to_size(deg, 0, 1, power=.1)
               vorder=deg, vcmap=gist_heat,
               output="output-deg.pdf")
 pr = gt.pagerank(g)
-gt.graph_draw(g, pos=pos, vertex_fill_color=pr,
-              vertex_size=gt.prop_to_size(pr, mi=5, ma=15),
-              vorder=pr, vcmap=gist_heat,
-              output="output-pr.pdf")
-
 # Sort the nodes by pagerank
 sorted_nodes = sorted(g.iter_vertices(), key=lambda v: pr[v], reverse=True)
+
+gt.graph_draw(g, pos=pos, vertex_fill_color=pr,
+              vertex_size=gt.prop_to_size(pr, mi=5, ma=15),
+              vorder=pr, vcmap=gist_heat, vertex_text=g.vertex_index,
+              output="output-pr.pdf")
 
 # Print the top 10 nodes by pagerank
 for i, node in enumerate(sorted_nodes[:10]):
     # remove the api from the record
     record_to_print = ALL_NODES[node].record.replace('api/', '')
-    print(f"Node {i+1}: {record_to_print} - Pagerank: {pr[node]}")
+    print(f"Rank {i+1}: Node {g.vertex_index[node]}, {record_to_print} - Pagerank: {pr[node]}")
     print(f"\tTitle: {ALL_NODES[node].title}")
-    print(ALL_NODES[node])

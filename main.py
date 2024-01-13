@@ -26,7 +26,8 @@ logging.basicConfig(filename='app.log', level=logging.INFO,
 
 
 def get_inspire_nodes_from_url(
-    url: str, api_manager: APIRequestManager
+    url: str, api_manager: APIRequestManager,
+    record_filter: Optional[List[str]] = None
 ) -> List[Node]:
     """
     Get INSPIRE record from URL
@@ -52,9 +53,16 @@ def get_inspire_nodes_from_url(
 
         record = ref['record']['$ref']
 
+        if (record_filter is not None) and (record not in record_filter):
+            logging.debug('Reference is not in the record filter, skipping...')
+            continue
+
         try:
-            title = ref['reference']['misc'][0]
+            record_num = record.split('/')[-1]
+            title = api_manager.find_title_from_inspire_record(record_num, cache=True)
         except KeyError:
+            logging.info(ref)
+            logging.warning('KeyError, no title found')
             title = 'No title'
 
         new_node = Node(record=record, title=title)
@@ -224,16 +232,18 @@ def find_inter_node_citations(
     Returns:
         list: A list of nodes with citations.
     """
+    record_filter = [node.record for node in nodes]
+
     for i, citing_node in enumerate(nodes):
         logging.info('Finding inter-node citations for node %d/%d', i + 1, len(nodes))
         # We only want to consider non-seed nodes
         if citing_node.node_type == NodeType.SEED:
             continue
 
-        cited_nodes = get_inspire_nodes_from_url(citing_node.record, api_manager)
-
         # We only record citations to nodes that are
         # in the original list
+        cited_nodes = get_inspire_nodes_from_url(citing_node.record, api_manager, record_filter=record_filter)
+
         for cited_node in cited_nodes:
             add_inter_node_citation(nodes, citing_node, cited_node)
 
@@ -275,3 +285,14 @@ gt.graph_draw(g, pos=pos, vertex_fill_color=pr,
               vertex_size=gt.prop_to_size(pr, mi=5, ma=15),
               vorder=pr, vcmap=gist_heat,
               output="output-pr.pdf")
+
+# Sort the nodes by pagerank
+sorted_nodes = sorted(g.iter_vertices(), key=lambda v: pr[v], reverse=True)
+
+# Print the top 10 nodes by pagerank
+for i, node in enumerate(sorted_nodes[:10]):
+    # remove the api from the record
+    record_to_print = ALL_NODES[node].record.replace('api/', '')
+    print(f"Node {i+1}: {record_to_print} - Pagerank: {pr[node]}")
+    print(f"\tTitle: {ALL_NODES[node].title}")
+    print(ALL_NODES[node])

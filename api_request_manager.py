@@ -127,7 +127,7 @@ class APIRequestManager:
             return None
 
         self.logger.info("API request to %s successful", url)
-        self.logger.info("%i requests have been made in the last %i seconds",
+        self.logger.debug("%i requests have been made in the last %i seconds",
                          len(self.queue), self.time_window)
 
         if cache:
@@ -139,3 +139,48 @@ class APIRequestManager:
                 json.dump(response.json(), f, indent=2)
 
         return response.json()
+
+    def find_title_from_inspire_record(
+        self, record_num: str, cache:bool = True
+    ) -> str:
+        """
+        Get the title of an INSPIRE record from its record ID.
+
+        Args:
+            record (str): The record ID of the INSPIRE record.
+
+        Returns:
+            str: The title of the INSPIRE record.
+        """
+        if cache:
+            self.logger.debug("Checking title cache for %s", record_num)
+            try:
+                with open("cache/title_cache.txt", "r", encoding='utf-8') as f:
+                    for line in f:
+                        if line.startswith(record_num):
+                            self.logger.debug("Reading title from cache")
+                            return line.split(',')[1].strip()
+            except FileNotFoundError:
+                self.logger.debug("Cache miss")
+
+        url = f"https://inspirehep.net/api/literature?q=recid:{record_num}&fields=titles"
+        response = self.make_api_request(url, cache=False)
+        if response is None:
+            self.logger.warning("Failed to get response during title search for record %s", record_num)
+            return 'No title'
+
+        try:
+            title = response['hits']['hits'][0]['metadata']['titles'][0]['title']
+        except KeyError:
+            self.logger.warning('No title found for record %s', record_num)
+            title = 'No title'
+
+        if cache:
+            self.logger.debug("Caching title for %s", record_num)
+            # make sure the cache directory exists
+            os.makedirs("cache", exist_ok=True)
+            # write a new line to the title cache
+            with open("cache/title_cache.txt", "a", encoding='utf-8') as f:
+                f.write(f"{record_num},{title}\n")
+
+        return title

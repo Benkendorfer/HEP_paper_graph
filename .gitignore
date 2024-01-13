@@ -4,6 +4,7 @@ graph.dot
 .vscode
 cache
 output*.pdf
+tmp.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

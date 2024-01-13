@@ -6,11 +6,14 @@ Copyright: 2024 by Kees Benkendorfer
 
 import logging
 import os
+import sys
 
 from typing import List, Optional
 
 from node import Node, NodeType
 from api_request_manager import APIRequestManager
+
+import graph_tool.all as gt
 
 # Clear the log file
 log_file = 'app.log'
@@ -29,11 +32,11 @@ def get_inspire_nodes_from_url(
     Get INSPIRE record from URL
     """
     logging.info("Fetching data from %s", url)
-    response = api_manager.make_api_request(url)
+    response = api_manager.make_api_request(url, cache=True)
     if response is None:
         logging.error("Failed to fetch data from %s", url)
         return []
-    data = response.json()
+    data = response
 
     try:
         references = data['metadata']['references']
@@ -77,6 +80,49 @@ def get_inspire_nodes_from_arxiv(
     return nodes
 
 
+def get_inspire_nodes_from_inspire(
+    inspire_ref: str, api_manager: APIRequestManager, seed_node: Node
+) -> List[Node]:
+    """
+    Get INSPIRE record from INSPIRE record
+    """
+    url = f"https://inspirehep.net/api/literature/{inspire_ref}"
+    nodes = get_inspire_nodes_from_url(url, api_manager)
+
+    for new_node in nodes:
+        new_node.add_parent(seed_node)
+
+    return nodes
+
+
+def seed_node_from_inspire(
+    inspire_ref: str, api_manager: APIRequestManager
+) -> Optional[Node]:
+    """
+    Add seed node from INSPIRE record
+    """
+    url = f"https://inspirehep.net/api/literature/{inspire_ref}"
+    logging.info("Fetching data from %s", url)
+    response = api_manager.make_api_request(url, cache=True)
+    if response is None:
+        logging.error("Failed to fetch data from %s", url)
+        return None
+
+    data = response
+
+    try:
+        title = data['metadata']['titles'][0]['title']
+    except KeyError:
+        title = 'No title'
+
+    node = Node(record=url,
+                title=title,
+                node_type=NodeType.SEED)
+    logging.info('Created seed node')
+
+    return node
+
+
 def seed_node_from_arxiv(
     arxiv_id: str, api_manager: APIRequestManager
 ) -> Optional[Node]:
@@ -85,12 +131,12 @@ def seed_node_from_arxiv(
     """
     url = f"https://inspirehep.net/api/arxiv/{arxiv_id}"
     logging.info("Fetching data from %s", url)
-    response = api_manager.make_api_request(url)
+    response = api_manager.make_api_request(url, cache=True)
     if response is None:
         logging.error("Failed to fetch data from %s", url)
         return None
 
-    data = response.json()
+    data = response
 
     metadata = data['metadata']
 
@@ -142,8 +188,11 @@ def get_nodes_from_seeds(seeds, api_manager):
     """
     all_nodes = []
     for seed in seeds:
-        seed_node = seed_node_from_arxiv(seed, api_manager)
-        references = get_inspire_nodes_from_arxiv(seed, api_manager, seed_node)
+        seed_node = seed_node_from_inspire(seed, api_manager)
+        if seed_node is None:
+            logging.error('Failed to create seed node from INSPIRE record %s', seed)
+            continue
+        references = get_inspire_nodes_from_inspire(seed, api_manager, seed_node)
 
         all_nodes += [seed_node]
         all_nodes += references
@@ -193,43 +242,26 @@ def find_inter_node_citations(
 
 API_MANAGER = APIRequestManager()
 
-SEEDS = ["2312.03797", "2202.12134", "2205.02817", "2312.04450"]
+SEEDS = ["2732688", "2037744", "2077575", "2744513"]
 
 ALL_NODES = get_nodes_from_seeds(SEEDS, API_MANAGER)
 
 find_inter_node_citations(ALL_NODES, API_MANAGER)
 
-node_map = {}
-for i, NODE in enumerate(ALL_NODES):
-    # node_map[NODE.record] = f"N{i}"
-    node_map[NODE.record] = NODE.record
+# create adjacency matrix
+adjacency_matrix = {}
+for NODE in ALL_NODES:
+    if NODE.record not in adjacency_matrix:
+        adjacency_matrix[NODE.record] = []
+    for parent in NODE.parents:
+        if parent.record not in adjacency_matrix:
+            adjacency_matrix[parent.record] = []
+        adjacency_matrix[parent.record] += [NODE.record]
 
-# sort all_nodes by number of parents
-ALL_NODES.sort(key=lambda x: len(x.parents), reverse=True)
-
-# keep only the top few nodes
-ALL_NODES = ALL_NODES[:25] + [node for node in ALL_NODES if node.node_type == NodeType.SEED]
-
-with open('graph.dot', 'w', encoding='utf-8') as f:
-    f.write('digraph G {\n')
-    f.write('rankdir=LR;\n')  # Set the rank direction to left-to-right
-    f.write('node [shape=rectangle];\n')
-    f.write('graph [engine=twopi, overlap=false, splines=true, ranksep=20];\n')
-
-    min_parents = min(len(NODE.parents) for NODE in ALL_NODES)
-
-    for NODE in ALL_NODES:
-        num_parents = len(NODE.parents)
-        size = (num_parents - min_parents) * 0.1 + 0.5
-        # size = num_parents * 0.01  # Adjust the scaling factor as needed
-
-        if NODE.node_type == NodeType.SEED:
-            f.write(f'"{node_map[NODE.record]}" [color=orange, style=filled, width={size*2 + 10}, height={size}, fontsize={size}];\n')  # Color seed nodes orange
-        else:
-            f.write(f'"{node_map[NODE.record]}" [width={size}, height={size}, fontsize={size*2 + 10}];\n')
-
-        for parent in NODE.parents:
-            if parent in ALL_NODES:
-                f.write(f'"{node_map[parent.record]}" -> "{node_map[NODE.record]}";\n')
-
-    f.write('}\n')
+# create a graph-tools graph from ALL_NODES
+g = gt.Graph(adjacency_matrix, directed=True, hashed=True)
+gt.graph_draw(g, output="output.pdf")
+vb, eb = gt.betweenness(g)
+gt.graph_draw(g, vertex_fill_color=gt.prop_to_size(vb, 0, 1, power=.1),
+           vertex_size=gt.prop_to_size(vb, 3, 12, power=.2), vorder=vb,
+           output="output-bt.pdf")

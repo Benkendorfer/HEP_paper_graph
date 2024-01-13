@@ -1,5 +1,8 @@
 from collections import deque
+import json
+import os
 import time
+from typing import Dict, Optional
 
 import requests
 import logging
@@ -87,7 +90,7 @@ class APIRequestManager:
                 self.logger.info("Waiting %f seconds until a request can be made", sleep_time)
                 time.sleep(sleep_time + 0.05)
 
-    def make_api_request(self, url: str):
+    def make_api_request(self, url: str, cache: bool = False) -> Optional[Dict]:
         """
         Makes an API request, given a URL, taking the timing into account.
         If we cannot make a request, then wait the minimum time until we can.
@@ -98,6 +101,16 @@ class APIRequestManager:
         Returns:
             bool: True if the request was successful, False otherwise.
         """
+        # read from the cache if we can
+        if cache:
+            self.logger.info("Checking cache for %s", url)
+            try:
+                with open(f"cache/{url.replace('/', '_')}.json", "r", encoding='utf-8') as f:
+                    self.logger.info("Reading from cache")
+                    return json.load(f)
+            except FileNotFoundError:
+                self.logger.info("Cache miss")
+
         if not self.can_make_request():
             self.wait_until_request_possible()
 
@@ -117,4 +130,12 @@ class APIRequestManager:
         self.logger.info("%i requests have been made in the last %i seconds",
                          len(self.queue), self.time_window)
 
-        return response
+        if cache:
+            self.logger.info("Caching response from %s", url)
+            # make sure the cache directory exists
+            os.makedirs("cache", exist_ok=True)
+            # write to the cache
+            with open(f"cache/{url.replace('/', '_')}.json", "w", encoding='utf-8') as f:
+                json.dump(response.json(), f, indent=2)
+
+        return response.json()

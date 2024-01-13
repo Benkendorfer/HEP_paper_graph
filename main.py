@@ -6,7 +6,6 @@ Copyright: 2024 by Kees Benkendorfer
 
 import logging
 import os
-import sys
 
 from typing import List, Optional
 
@@ -14,6 +13,7 @@ from node import Node, NodeType
 from api_request_manager import APIRequestManager
 
 import graph_tool.all as gt
+from matplotlib.cm import gist_heat
 
 # Clear the log file
 log_file = 'app.log'
@@ -242,7 +242,7 @@ def find_inter_node_citations(
 
 API_MANAGER = APIRequestManager()
 
-SEEDS = ["2732688", "2037744", "2077575", "2744513"]
+SEEDS = ["1900929", "1815227"]
 
 ALL_NODES = get_nodes_from_seeds(SEEDS, API_MANAGER)
 
@@ -260,8 +260,20 @@ for NODE in ALL_NODES:
 
 # create a graph-tools graph from ALL_NODES
 g = gt.Graph(adjacency_matrix, directed=True, hashed=True)
-gt.graph_draw(g, output="output.pdf")
+pos = gt.sfdp_layout(g)
+gt.graph_draw(g, pos=pos, output="output.pdf")
+# draw the graph, sizing by degree
+deg = g.degree_property_map("in")
+gt.graph_draw(g, pos=pos, vertex_fill_color=gt.prop_to_size(deg, 0, 1, power=.1),
+              vertex_size=gt.prop_to_size(deg, mi=5, ma=15),
+              vorder=deg, vcmap=gist_heat,
+              output="output-deg.pdf")
 vb, eb = gt.betweenness(g)
-gt.graph_draw(g, vertex_fill_color=gt.prop_to_size(vb, 0, 1, power=.1),
+gt.graph_draw(g, pos=pos, vertex_fill_color=gt.prop_to_size(vb, 0, 1, power=.1),
            vertex_size=gt.prop_to_size(vb, 3, 12, power=.2), vorder=vb,
            output="output-bt.pdf")
+pr = gt.pagerank(g)
+gt.graph_draw(g, pos=pos, vertex_fill_color=pr,
+              vertex_size=gt.prop_to_size(pr, mi=5, ma=15),
+              vorder=pr, vcmap=gist_heat,
+              output="output-pr.pdf")

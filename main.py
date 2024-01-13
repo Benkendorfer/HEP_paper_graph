@@ -9,13 +9,13 @@ import os
 
 from typing import List, Optional
 
-from node import Node, NodeType
-from api_request_manager import APIRequestManager
-
 import graph_tool.all as gt
 from matplotlib.cm import gist_heat
 
 import matplotlib.pyplot as plt
+
+from node import Node, NodeType
+from api_request_manager import APIRequestManager
 
 # Necessary to switch to cairo backend for graph-tool
 plt.switch_backend("cairo")
@@ -259,8 +259,8 @@ def find_inter_node_citations(
 
 API_MANAGER = APIRequestManager()
 
-SEEDS = [#"1900929", "1815227",
-         "2037744", "2077575", "2732688"
+SEEDS = ["1900929", #"1815227",
+         "2037744", #"2077575", "2732688"
          ]
 
 ALL_NODES = get_nodes_from_seeds(SEEDS, API_MANAGER)
@@ -290,7 +290,7 @@ gt.graph_draw(g, pos=pos, vertex_fill_color=gt.prop_to_size(deg, 0, 1, power=.1)
               vorder=deg, vcmap=gist_heat, vertex_text=g.vertex_index,
               output="output-deg.pdf")
 
-fig, ax = plt.subplots(1, 2, figsize=(24, 11.5))
+fig, ax = plt.subplots(2, 1, figsize=(12, 23))
 
 pr = gt.pagerank(g)
 # Sort the nodes by pagerank
@@ -301,20 +301,25 @@ gt.graph_draw(g, vertex_fill_color=pr,
               vorder=pr, vcmap=gist_heat, vertex_text=g.vertex_index, mplfig=ax[0])
 
 # Print the top 10 nodes by pagerank
-text = ""
-for i, node in enumerate(sorted_nodes[:10]):
+TEXT = ""
+for NODE_I, NODE in enumerate(sorted_nodes[:10]):
     # remove the api from the record
-    record_to_print = ALL_NODES[node].record.replace('api/', '')
-    text += f"Rank {i+1}: Node {g.vertex_index[node]}, {record_to_print} - Pagerank: {pr[node]}\n"
-    text += "\t\t" + rf"Title: {ALL_NODES[node].title}" + "\n\n"
+    record_to_print = ALL_NODES[NODE].record.replace('api/', '')
+    TEXT += f"Rank {NODE_I+1}: Node {g.vertex_index[NODE]}, {record_to_print} - Pagerank: {pr[NODE]:.2f}\n"
 
-print(text)
+    n_chars = 120
+
+    title = (ALL_NODES[NODE].title[:n_chars] + "...") if len(ALL_NODES[NODE].title) > n_chars else ALL_NODES[NODE].title
+    TEXT += rf"Title: {title}" + "\n\n"
+
+print(TEXT)
 
 ax[0].set_axis_off()
 ax[1].set_axis_off()
 
+
 # Add text in the bottom right corner
-ax[1].text(0.05, 0.95, text, transform=ax[1].transAxes,
+ax[1].text(0, 1, TEXT, transform=ax[1].transAxes,
              fontsize=12, color='black', ha='left', va='top')
 
 plt.savefig('output-pr.pdf', bbox_inches='tight')

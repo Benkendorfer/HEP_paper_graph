@@ -242,7 +242,9 @@ def find_inter_node_citations(
 
 API_MANAGER = APIRequestManager()
 
-SEEDS = ["1900929", "1815227"]
+SEEDS = [#"1900929", "1815227",
+         "2037744", "2077575"
+         ]
 
 ALL_NODES = get_nodes_from_seeds(SEEDS, API_MANAGER)
 
@@ -268,10 +270,6 @@ gt.graph_draw(g, pos=pos, vertex_fill_color=gt.prop_to_size(deg, 0, 1, power=.1)
               vertex_size=gt.prop_to_size(deg, mi=5, ma=15),
               vorder=deg, vcmap=gist_heat,
               output="output-deg.pdf")
-vb, eb = gt.betweenness(g)
-gt.graph_draw(g, pos=pos, vertex_fill_color=gt.prop_to_size(vb, 0, 1, power=.1),
-           vertex_size=gt.prop_to_size(vb, 3, 12, power=.2), vorder=vb,
-           output="output-bt.pdf")
 pr = gt.pagerank(g)
 gt.graph_draw(g, pos=pos, vertex_fill_color=pr,
               vertex_size=gt.prop_to_size(pr, mi=5, ma=15),

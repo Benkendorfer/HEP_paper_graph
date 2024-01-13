@@ -126,7 +126,7 @@ class APIRequestManager:
             self.logger.warning("API request to %s failed due to a connection error", url)
             return None
 
-        self.logger.info("API request to %s successful", url)
+        self.logger.debug("API request to %s successful", url)
         self.logger.debug("%i requests have been made in the last %i seconds",
                          len(self.queue), self.time_window)
 

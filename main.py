@@ -15,6 +15,11 @@ from api_request_manager import APIRequestManager
 import graph_tool.all as gt
 from matplotlib.cm import gist_heat
 
+import matplotlib.pyplot as plt
+
+# Necessary to switch to cairo backend for graph-tool
+plt.switch_backend("cairo")
+
 # Clear the log file
 log_file = 'app.log'
 if os.path.exists(log_file):
@@ -282,20 +287,34 @@ gt.graph_draw(g, pos=pos, output="output.pdf")
 deg = g.degree_property_map("in")
 gt.graph_draw(g, pos=pos, vertex_fill_color=gt.prop_to_size(deg, 0, 1, power=.1),
               vertex_size=gt.prop_to_size(deg, mi=5, ma=15),
-              vorder=deg, vcmap=gist_heat,
+              vorder=deg, vcmap=gist_heat, vertex_text=g.vertex_index,
               output="output-deg.pdf")
+
+fig, ax = plt.subplots(1, 2, figsize=(24, 11.5))
+
 pr = gt.pagerank(g)
 # Sort the nodes by pagerank
 sorted_nodes = sorted(g.iter_vertices(), key=lambda v: pr[v], reverse=True)
 
-gt.graph_draw(g, pos=pos, vertex_fill_color=pr,
-              vertex_size=gt.prop_to_size(pr, mi=5, ma=15),
-              vorder=pr, vcmap=gist_heat, vertex_text=g.vertex_index,
-              output="output-pr.pdf")
+gt.graph_draw(g, vertex_fill_color=pr,
+              vertex_size=gt.prop_to_size(pr, mi=-1, ma=2, power=0.1),
+              vorder=pr, vcmap=gist_heat, vertex_text=g.vertex_index, mplfig=ax[0])
 
 # Print the top 10 nodes by pagerank
+text = ""
 for i, node in enumerate(sorted_nodes[:10]):
     # remove the api from the record
     record_to_print = ALL_NODES[node].record.replace('api/', '')
-    print(f"Rank {i+1}: Node {g.vertex_index[node]}, {record_to_print} - Pagerank: {pr[node]}")
-    print(f"\tTitle: {ALL_NODES[node].title}")
+    text += f"Rank {i+1}: Node {g.vertex_index[node]}, {record_to_print} - Pagerank: {pr[node]}\n"
+    text += "\t\t" + rf"Title: {ALL_NODES[node].title}" + "\n\n"
+
+print(text)
+
+ax[0].set_axis_off()
+ax[1].set_axis_off()
+
+# Add text in the bottom right corner
+ax[1].text(0.05, 0.95, text, transform=ax[1].transAxes,
+             fontsize=12, color='black', ha='left', va='top')
+
+plt.savefig('output-pr.pdf', bbox_inches='tight')
